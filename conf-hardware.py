@@ -247,22 +247,22 @@ def menu_gestion_raid():
     """Advanced RAID + LVM management console."""
     while True:
         print("""
-========== RAID / LVM MANAGEMENT ==========
-1 Add disk to RAID
-2 Remove disk from RAID
-3 Extend VG
-4 Reduce VG
-5 Create LV
-6 Extend LV
-7 Reduce LV
-8 Split LV (snapshot or clone)
-9 Delete LV
-10 Delete VG
-11 add spare disk to RAID
-12 print a cat if u are fucked up
-13 Back to main menu
-===========================================
-""")
+    ========== RAID / LVM MANAGEMENT ==========
+    1 Add disk to RAID
+    2 Remove disk from RAID
+    3 Extend VG
+    4 Reduce VG
+    5 Create LV
+    6 Extend LV
+    7 Reduce LV
+    8 Split LV (snapshot or clone)
+    9 Delete LV
+    10 Delete VG
+    11 add spare disk to RAID
+    12 print a cat if u are fucked up
+    13 Back to main menu
+    ===========================================
+    """)
         try:
             O = int(input("Select an option: "))
         except ValueError:
@@ -659,6 +659,73 @@ def quotas_add():
         case _:
             print("[WARN] Invalid option.")
 
+
+# ==============================
+# SET UP CRON
+# ==============================
+
+def set_cron_proc():
+    print("=== Cron job configurator ===")
+
+    rpt = input("Does it repeat? (example: every 15 min) (y/n) [n]: ").strip().lower() or "n"
+
+    if rpt == "y":
+        every = input("Enter repetition (e.g. '*/15 * * * *' for every 15 minutes): ").strip()
+        cron_expr = every if every else "*/15 * * * *"
+
+    else:
+        print(
+            "\nSelect the time field you want to control:\n"
+            "0 - Minute\n"
+            "1 - Hour\n"
+            "2 - Day of the month\n"
+            "3 - Month\n"
+            "4 - Day of the week"
+        )
+        try:
+            k = int(input("> ").strip())
+        except ValueError:
+            k = -1
+
+        # Valores por defecto
+        mins = "*"
+        hour = "*"
+        day_month = "*"
+        month = "*"
+        day_week = "*"
+
+        # Config según selección
+        match k:
+            case 0:
+                mins = input("Minute(s) (0-59, * for any): ").strip() or "*"
+            case 1:
+                hour = input("Hour(s) (0-23, * for any): ").strip() or "*"
+            case 2:
+                day_month = input("Day of month (1-31, * for any): ").strip() or "*"
+            case 3:
+                month = input("Month (1-12, * for any): ").strip() or "*"
+            case 4:
+                day_week = input("Day of week (0-6, Sun=0, * for any): ").strip() or "*"
+            case _:
+                print("[WARN] Invalid option — using all wildcards.")
+
+        cron_expr = f"{mins} {hour} {day_month} {month} {day_week}"
+
+    print(f"\n[INFO] Generated CRON expression: {cron_expr}")
+    cmd = input("Enter command to execute: ").strip()
+    full_entry = f"{cron_expr} {cmd}"
+
+    print(f"\n[RESULT] → {full_entry}")
+    save = input("Do you want to save it to your crontab? (y/n) [n]: ").strip().lower() or "n"
+    if save == "y":
+        import tempfile, os
+        tmpfile = tempfile.NamedTemporaryFile(delete=False)
+        os.system(f"crontab -l > {tmpfile.name} 2>/dev/null || true")
+        with open(tmpfile.name, "a") as f:
+            f.write(full_entry + "\n")
+        os.system(f"crontab {tmpfile.name}")
+        os.unlink(tmpfile.name)
+        print("[INFO] Cron job added successfully.")
 # ==============================
 # Main Menu
 # ==============================
@@ -668,12 +735,16 @@ def main():
         try:
             O = int(input(
                 "\nSelect an option:\n"
+                "0 Exit\n"
                 "1 RAID Configuration\n"
                 "2 quotas config\n"
-                "3 Exit\n> "
+                "3 cron config\n>"
             ))
 
             match O:
+                case 0:
+                    print("[INFO] Exiting.")
+                    break
                 case 1:
                     AMOGAS = int(input(
                         "\nSelect an option:\n"
@@ -727,8 +798,26 @@ def main():
                         case _:
                             print("[WARN] Invalid option.")
                 case 3:
-                    print("[INFO] Exiting.")
-                    break
+                    ejecutar("clear")
+                    AMOGAS = int(input(
+                        "\nSelect an option:\n"
+                        "0 Exit\n"
+                        "1 set up a process\n"
+                        "2 delete a process\n"
+                        "3 modify a procces\n"
+                        
+                        "\n>"
+                        ))
+                    match AMOGAS
+                        case 0:
+                            print("\n[INFO] Interrupted by user.")
+                            break
+                        case 1:
+
+                        case 2:
+
+                        case 3:
+
                 case _:
                     print("[WARN] Invalid option.")
         except KeyboardInterrupt:
