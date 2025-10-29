@@ -746,8 +746,9 @@ def Del_cron_proc(user=None):
         print(f"\n[INFO] Crontab for user '{user or os.getlogin()}':\n")
         for line in lines:
             print("  " + line)
+        print lines
         return lines
-    print lines
+    
     except FileNotFoundError:
         print("[ERROR] 'crontab' command not found in PATH.")
         return []
