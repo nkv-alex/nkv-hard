@@ -808,12 +808,12 @@ def main():
                         
                         "\n>"
                         ))
-                    match AMOGAS
+                    match AMOGAS:
                         case 0:
                             print("\n[INFO] Interrupted by user.")
                             break
                         case 1:
-
+                            ser_cron_proc()
                         case 2:
 
                         case 3:
