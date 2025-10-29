@@ -813,7 +813,7 @@ def main():
                             print("\n[INFO] Interrupted by user.")
                             break
                         case 1:
-                            ser_cron_proc()
+                            set_cron_proc()
                         case 2:
                             print("a")
                         case 3:
