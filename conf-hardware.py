@@ -729,10 +729,7 @@ def set_cron_proc():
 
 
 def Del_cron_proc(user=None):
-    """
-    Lista todas las líneas del crontab del usuario especificado.
-    Si no se indica, usa el usuario actual.
-    """
+    
     try:
         if user:
             cmd = ["crontab", "-u", user, "-l"]
@@ -750,7 +747,7 @@ def Del_cron_proc(user=None):
         for line in lines:
             print("  " + line)
         return lines
-
+    print lines
     except FileNotFoundError:
         print("[ERROR] 'crontab' command not found in PATH.")
         return []
