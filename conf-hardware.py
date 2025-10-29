@@ -3,6 +3,7 @@ import os
 import subprocess
 import json
 import json
+import tempfile
 # ==============================
 # System Utilities
 # ==============================
@@ -729,32 +730,61 @@ def set_cron_proc():
 
 
 def Del_cron_proc(user=None):
-    
     try:
-        if user:
-            cmd = ["crontab", "-u", user, "-l"]
-        else:
-            cmd = ["crontab", "-l"]
-
+        # === Leer el crontab actual ===
+        cmd = ["crontab", "-u", user, "-l"] if user else ["crontab", "-l"]
         result = subprocess.run(cmd, capture_output=True, text=True)
 
-        if result.returncode != 0:
+        if result.returncode != 0 or not result.stdout.strip():
             print(f"[WARN] No crontab entries found for user '{user or os.getlogin()}'.")
-            return []
+            return
 
         lines = [line for line in result.stdout.splitlines() if line.strip()]
-        print(f"\n[INFO] Crontab for user '{user or os.getlogin()}':\n")
-        for line in lines:
-            print("  " + line)
-        print({lines})
-        return lines
-    
+
+        print(f"\n[INFO] Active crontab entries for '{user or os.getlogin()}':\n")
+        for i, line in enumerate(lines, start=1):
+            print(f" {i:>2}. {line}")
+
+        # === Elegir línea a eliminar ===
+        choice = input("\nEnter line number to delete (comma-separated for multiple, or press Enter to skip): ").strip()
+        if not choice:
+            print("[INFO] No changes made.")
+            return
+
+        # Parsear selección
+        try:
+            indices = sorted({int(x.strip()) for x in choice.split(",") if x.strip().isdigit()}, reverse=True)
+        except ValueError:
+            print("[ERROR] Invalid input format.")
+            return
+
+        for idx in indices:
+            if 1 <= idx <= len(lines):
+                print(f"[INFO] Removing line {idx}: {lines[idx-1]}")
+                del lines[idx-1]
+            else:
+                print(f"[WARN] Line {idx} out of range, skipped.")
+
+        # === Guardar nuevo crontab ===
+        tmpfile = tempfile.NamedTemporaryFile(delete=False)
+        with open(tmpfile.name, "w") as f:
+            f.write("\n".join(lines) + "\n")
+
+        apply_cmd = ["crontab", "-u", user, tmpfile.name] if user else ["crontab", tmpfile.name]
+        subprocess.run(apply_cmd, check=True)
+        os.unlink(tmpfile.name)
+
+        print(f"\n[SUCCESS] Updated crontab saved for '{user or os.getlogin()}'.")
+        print("[INFO] Current crontab:\n")
+        subprocess.run(["crontab", "-l"])
+
     except FileNotFoundError:
         print("[ERROR] 'crontab' command not found in PATH.")
-        return []
+    except subprocess.CalledProcessError:
+        print("[ERROR] Failed to apply updated crontab.")
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
-        return []
+
 # ==============================
 # Main Menu
 # ==============================
