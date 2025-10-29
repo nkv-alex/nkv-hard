@@ -815,9 +815,9 @@ def main():
                         case 1:
                             ser_cron_proc()
                         case 2:
-
+                            print("a")
                         case 3:
-
+                            print("a")
                 case _:
                     print("[WARN] Invalid option.")
         except KeyboardInterrupt:
