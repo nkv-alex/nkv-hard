@@ -726,6 +726,37 @@ def set_cron_proc():
         os.system(f"crontab {tmpfile.name}")
         os.unlink(tmpfile.name)
         print("[INFO] Cron job added successfully.")
+
+
+def Del_cron_proc(user=None):
+    """
+    Lista todas las líneas del crontab del usuario especificado.
+    Si no se indica, usa el usuario actual.
+    """
+    try:
+        if user:
+            cmd = ["crontab", "-u", user, "-l"]
+        else:
+            cmd = ["crontab", "-l"]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            print(f"[WARN] No crontab entries found for user '{user or os.getlogin()}'.")
+            return []
+
+        lines = [line for line in result.stdout.splitlines() if line.strip()]
+        print(f"\n[INFO] Crontab for user '{user or os.getlogin()}':\n")
+        for line in lines:
+            print("  " + line)
+        return lines
+
+    except FileNotFoundError:
+        print("[ERROR] 'crontab' command not found in PATH.")
+        return []
+    except Exception as e:
+        print(f"[ERROR] Unexpected error: {e}")
+        return []
 # ==============================
 # Main Menu
 # ==============================
@@ -815,7 +846,7 @@ def main():
                         case 1:
                             set_cron_proc()
                         case 2:
-                            print("a")
+                            Del_cron_proc()
                         case 3:
                             print("a")
                 case _:
