@@ -797,7 +797,9 @@ def main():
                 "0 Exit\n"
                 "1 RAID Configuration\n"
                 "2 quotas config\n"
-                "3 cron config\n>"
+                "3 cron config"
+                "4 Ldap config"
+                "\n>"
             ))
 
             match O:
@@ -877,6 +879,8 @@ def main():
                             Del_cron_proc()
                         case 3:
                             print("a")
+                case 4:
+                    print("pronto esta")
                 case _:
                     print("[WARN] Invalid option.")
         except KeyboardInterrupt:
