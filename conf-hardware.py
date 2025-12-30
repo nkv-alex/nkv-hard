@@ -2,11 +2,9 @@
 import os
 import subprocess
 import json
-import json
 import tempfile
-# ==============================
+
 # System Utilities
-# ==============================
 
 def ejecutar(cmd):
     """Execute system command and return status."""
@@ -19,8 +17,8 @@ def ejecutar(cmd):
         return False
 
 def formatear_discos():
-    """Full wipe + uniform GPT partitioning and filesystem formatting across multiple disks."""
-    print("[INFO] Starting full disk reinitialization and uniform formatting routine...")
+    """Full disk wipe with GPT partitioning and uniform filesystem formatting."""
+    print("[INFO] Starting full disk reinitialization...")
 
     discos = input("Enter devices to format (e.g., /dev/sdb /dev/sdc /dev/sdd): ").split()
     if not discos:
@@ -72,70 +70,52 @@ def formatear_discos():
     for disco in discos:
         print(f"[TASK] Processing {disco}...")
 
-        # ================================================
-        # Desmontar cualquier filesystem
-        # ================================================
+        # Unmount all filesystems
         print("[STEP] Unmounting all filesystems on this disk...")
         ejecutar(f"lsblk -ln -o MOUNTPOINT {disco} | grep -v '^$' | xargs -r -n1 umount -f || true")
 
-        # ================================================
-        # Eliminar mappings activos del kernel (LVM)
-        # ================================================
+        # Remove active device mapper entries
         print("[STEP] Removing any device mapper entries...")
         ejecutar(f"dmsetup remove -f {disco}* || true")
 
-        # ================================================
-        # Eliminar Logical Volumes
-        # ================================================
+        # Remove Logical Volumes
         print("[STEP] Removing all Logical Volumes on this disk...")
         ejecutar("lvdisplay --colon 2>/dev/null | cut -d: -f1 | xargs -r -n1 lvremove -ff -y || true")
 
-        # ================================================
-        # Eliminar Volume Groups
-        # ================================================
+        # Remove Volume Groups
         print("[STEP] Removing all Volume Groups on this disk...")
         ejecutar("vgdisplay --colon 2>/dev/null | cut -d: -f1 | xargs -r -n1 vgremove -ff -y || true")
 
-        # ================================================
-        # Eliminar Physical Volumes
-        # ================================================
+        # Remove Physical Volumes
         print("[STEP] Removing all Physical Volumes on this disk...")
         ejecutar("pvdisplay --colon 2>/dev/null | cut -d: -f1 | xargs -r -n1 pvremove -ff -y || true")
 
-        # ================================================
-        # Detener y limpiar cualquier RAID
-        # ================================================
+        # Stop and clean any RAID arrays
         print("[STEP] Stopping any RAID arrays containing this disk...")
         ejecutar("mdadm --detail --scan | awk '{print $2}' | xargs -r -n1 mdadm --stop || true")
         ejecutar(f"mdadm --zero-superblock {disco} || true")
 
-        # ================================================
-        # Limpiar firmas y tabla de particiones
-        # ================================================
+        # Wipe all signatures and partition table
         print("[STEP] Wiping all signatures and partition table...")
         ejecutar(f"wipefs -a {disco} || true")
         ejecutar(f"sgdisk --zap-all {disco} || true")
 
-        # ================================================
-        # Zeroing rápido para cabecera
-        # ================================================
-        print("[STEP] Zeroing first 10MB for full clean slate...")
+        # Fast zero for header
+        print("[STEP] Zeroing first 10MB for clean slate...")
         ejecutar(f"dd if=/dev/zero of={disco} bs=1M count=10 conv=fdatasync status=none || true")
         ejecutar(f"blkdiscard {disco} || true")
         ejecutar(f'sudo sgdisk --zap-all {disco}')
 
         print(f"[OK] Disk {disco} fully cleaned and ready for reuse.\n")
 
-        # ================================================
-        # Crear nueva estructura GPT + partición
-        # ================================================
+        # Create new GPT structure and partition
         if not ejecutar(f"parted -s {disco} mklabel gpt"):
             print(f"[ERROR] Failed to create GPT on {disco}")
             continue
 
         ejecutar(f"parted -s {disco} mkpart primary 1MiB {tamaño_input}")
 
-        # Obtener nombre de la nueva partición
+        # Get new partition name
         part = disco + "1" if "nvme" not in disco else disco + "p1"
         print(f"[INFO] Formatting {part} as {tipo_fs}...")
         ejecutar(f"mkfs.{tipo_fs} -F {part}")
@@ -148,7 +128,6 @@ def safe_int_input(prompt):
     """Input integer safely, stripping non-numeric characters."""
     while True:
         raw = input(prompt).strip()
-        # Filtrar caracteres no numéricos
         raw = ''.join(ch for ch in raw if ch.isdigit())
         if raw.isdigit():
             return int(raw)
@@ -164,18 +143,13 @@ def convertir_a_kb(valor):
         return int(float(valor[:-1]) * 1024 * 1024)
     else:
         return int(valor)
-# ==============================
+
 # System variables
-# ==============================
 punto_montaje = {
     "mount":""
 }
 
-
-
-# ==============================
 # RAID + Manager + LVM Functions
-# ==============================
 
 def crear_raid(tipo, discos, nombre_raid):
     """Create RAID device using mdadm."""
@@ -213,15 +187,15 @@ def añadir_disco_repuesto(nombre_raid, disco_repuesto):
 
 
 def mostrar_status_raids():
-    """Show status of all active RAID arrays in the system."""
+    """Show status of all active RAID arrays."""
     print("[INFO] Scanning active RAID arrays...")
 
     try:
-        # Leer /proc/mdstat para detectar RAIDs activos
+        # Read /proc/mdstat to detect active RAIDs
         with open("/proc/mdstat", "r") as f:
             contenido = f.read()
 
-        # Buscar los dispositivos RAID (líneas que empiecen con 'md')
+        # Find RAID devices (lines starting with 'md')
         raids = []
         for linea in contenido.splitlines():
             if linea.startswith("md"):
@@ -232,20 +206,20 @@ def mostrar_status_raids():
             print("[INFO] No RAID arrays detected.")
             return
 
-        # Mostrar estado detallado de cada RAID encontrado
+        # Display detailed status for each RAID
         for raid in raids:
             print(f"\n========== RAID: /dev/{raid} ==========")
             ejecutar(f"mdadm --detail /dev/{raid}")
             print("======================================")
 
     except FileNotFoundError:
-        print("[ERROR] /proc/mdstat not found. Is mdadm installed and RAID active?")
+        print("[ERROR] /proc/mdstat not found. Is mdadm installed?")
     except Exception as e:
         print(f"[ERROR] Failed to check RAID status: {e}")
 
 
 def menu_gestion_raid():
-    """Advanced RAID + LVM management console."""
+    """Advanced RAID and LVM management console."""
     while True:
         print("""
     ========== RAID / LVM MANAGEMENT ==========
@@ -259,8 +233,8 @@ def menu_gestion_raid():
     8 Split LV (snapshot or clone)
     9 Delete LV
     10 Delete VG
-    11 add spare disk to RAID
-    12 print a cat if u are fucked up
+    11 Add spare disk to RAID
+    12 Print cat (debug mode)
     13 Back to main menu
     ===========================================
     """)
@@ -271,56 +245,48 @@ def menu_gestion_raid():
             continue
 
         match O:
-            # ---------------------------------------------
-            case 1:  # ADD DISK
+            case 1:
                 nombre_raid = input("Enter RAID name (e.g., md0): ")
                 disco = input("Enter device to add (e.g., /dev/sdd): ")
                 ejecutar(f"mdadm --add /dev/{nombre_raid} {disco}")
 
-            # ---------------------------------------------
-            case 2:  # REMOVE DISK
+            case 2:
                 nombre_raid = input("Enter RAID name (e.g., md0): ")
                 disco = input("Enter device to remove (e.g., /dev/sdc): ")
                 ejecutar(f"mdadm --fail /dev/{nombre_raid} {disco}")
                 ejecutar(f"mdadm --remove /dev/{nombre_raid} {disco}")
 
-            # ---------------------------------------------
-            case 3:  # EXTEND VG
+            case 3:
                 nombre_vg = input("Enter VG name: ")
                 disco = input("Enter new device or RAID to add (e.g., /dev/md1 or /dev/sdd1): ")
                 ejecutar(f"vgextend {nombre_vg} {disco}")
 
-            # ---------------------------------------------
-            case 4:  # REDUCE VG
+            case 4:
                 nombre_vg = input("Enter VG name: ")
                 disco = input("Enter device to remove (e.g., /dev/sdd1): ")
                 ejecutar(f"vgreduce {nombre_vg} {disco}")
 
-            # ---------------------------------------------
-            case 5:  # CREATE LV
+            case 5:
                 nombre_vg = input("Enter VG name: ")
                 nombre_lv = input("Enter new LV name: ")
                 tamaño = input("Enter size (e.g., 10G): ")
                 ejecutar(f"lvcreate -L {tamaño} -n {nombre_lv} {nombre_vg}")
 
-            # ---------------------------------------------
-            case 6:  # EXTEND LV
+            case 6:
                 nombre_vg = input("Enter VG name: ")
                 nombre_lv = input("Enter LV name to extend: ")
                 tamaño = input("Enter additional size (e.g., +5G): ")
                 ejecutar(f"lvextend -L{tamaño} /dev/{nombre_vg}/{nombre_lv}")
                 ejecutar(f"resize2fs /dev/{nombre_vg}/{nombre_lv}")
 
-            # ---------------------------------------------
-            case 7:  # REDUCE LV
+            case 7:
                 nombre_vg = input("Enter VG name: ")
                 nombre_lv = input("Enter LV name to reduce: ")
                 tamaño = input("Enter new smaller size (e.g., 10G): ")
                 print("[WARN] Ensure filesystem is reduced first (use resize2fs -M).")
                 ejecutar(f"lvreduce -L {tamaño} /dev/{nombre_vg}/{nombre_lv}")
 
-            # ---------------------------------------------
-            case 8:  # SPLIT LV (snapshot or clone)
+            case 8:
                 nombre_vg = input("Enter VG name: ")
                 nombre_lv = input("Enter LV name to split: ")
                 tipo = input("Snapshot (s) or Clone (c)?: ").lower()
@@ -338,14 +304,12 @@ def menu_gestion_raid():
                 else:
                     print("[WARN] Invalid selection.")
 
-            # ---------------------------------------------
-            case 9:  # DELETE LV
+            case 9:
                 nombre_vg = input("Enter VG name: ").strip()
                 nombre_lv = input("Enter LV name to delete: ").strip()
                 ruta_lv = f"/dev/{nombre_vg}/{nombre_lv}"
 
                 print(f"[INFO] Checking if {ruta_lv} is mounted...")
-                # Verificar si está montado y desmontar
                 try:
                     res = subprocess.run(
                         f"findmnt -n -o TARGET {ruta_lv}",
@@ -362,47 +326,44 @@ def menu_gestion_raid():
                 except Exception as e:
                     print(f"[WARN] Unable to check mount status: {e}")
 
-                # Borrar el filesystem (wipefs + dd de cabecera)
+                # Wipe filesystem signatures
                 print(f"[STEP] Wiping filesystem signatures from {ruta_lv}...")
                 ejecutar(f"wipefs -a {ruta_lv}")
                 ejecutar(f"dd if=/dev/zero of={ruta_lv} bs=1M count=10 conv=fdatasync status=none")
 
-                # Eliminar el Logical Volume
+                # Remove Logical Volume
                 print(f"[STEP] Removing LV {nombre_lv} from VG {nombre_vg}...")
                 ejecutar(f"lvremove -f {ruta_lv}")
 
                 print(f"[OK] Logical Volume {nombre_lv} fully removed and cleaned.")
 
-            # ---------------------------------------------
-            case 10:  # DELETE VG
+            case 10:
                 nombre_vg = input("Enter VG name to delete: ")
                 ejecutar(f"vgremove -f {nombre_vg}")
-            # ---------------------------------------------
-            case 11:  # ADD SPARE DISK
+
+            case 11:
                 nombre_raid = input("Enter RAID name (e.g., md0): ")
                 disco_repuesto = input("Enter spare disk device (e.g., /dev/sdd): ")
                 añadir_disco_repuesto(nombre_raid, disco_repuesto)
-            # ---------------------------------------------
-            case 12:  # PRINT A CAT IF U ARE FUCKED UP
+
+            case 12:
                 print(r"""
                   ^__^  
                 ( o.o ) 
                  > ^ < 
                 """)
-            # ---------------------------------------------
-            case 13:  # EXIT
+
+            case 13:
                 print("[INFO] Returning to main menu...")
                 break
 
             case _:
                 print("[WARN] Invalid option.")
 
-# ==============================
 # RAID Menu Logic
-# ==============================
 
 def menu_raid():
-    """Handle RAID + LVM configuration with multi-VG/LV support."""
+    """Handle RAID and LVM configuration with multi-VG/LV support."""
     Z = int(input("Select RAID type:\n1 RAID 0\n2 RAID 1\n3 RAID 5\n4 RAID 10\n> "))
 
     nombre_raid = input("Enter RAID name (e.g., md0): ")
@@ -417,7 +378,6 @@ def menu_raid():
     if not crear_raid(nivel_raid, discos, nombre_raid):
         print("[ERROR] RAID creation failed.")
         return
-
 
     print("[INFO] Saving RAID configuration to /etc/mdadm/mdadm.conf...")
     ejecutar("mkdir -p /etc/mdadm")
@@ -452,14 +412,13 @@ def menu_raid():
 
     print("[INFO] RAID and all LVM structures successfully configured.")
 
-# ==============================
 # Quotas Config Menu
-# ==============================
 
 def quotas_create():
     config_file = "config_hardware.json"
     punto_montaje = None
-    #leer el punto de montaje del JSON
+    
+    # Read mount point from JSON
     if os.path.exists(config_file):
         try:
             with open(config_file, "r") as f:
@@ -472,7 +431,7 @@ def quotas_create():
     else:
         print("[INFO] No config_hardware.json found. Manual selection required.")
 
-    #Si json vacio, pedirlo manualmente
+    # If JSON empty, request manually
     if not punto_montaje or not os.path.exists(punto_montaje):
         quotas_installed = input("[INFO] Does this machine have quotas installed? (Y/N): ").strip().lower()
 
@@ -518,13 +477,12 @@ def quotas_create():
                 print("[ERROR] Invalid selection.")
                 return
 
-        # Guardar punto de montaje en config_hardware.json
+        # Save mount point to config_hardware.json
         with open(config_file, "w") as f:
             json.dump({"mount": punto_montaje}, f, indent=4)
             print(f"[OK] Saved mount point to {config_file}")
 
-    
-    #Validar y habilitar cuotas
+    # Validate and enable quotas
     if not os.path.ismount(punto_montaje):
         print(f"[ERROR] {punto_montaje} is not a valid mount point.")
         return
@@ -560,9 +518,7 @@ def quotas_create():
     except Exception as e:
         print(f"[ERROR] Failed to configure quotas: {e}")
 
-# ==============================
-# quotas config
-# ==============================
+# Quotas configuration
 
 def quotas_config():
     user_or_group = input("""
@@ -660,10 +616,7 @@ def quotas_add():
         case _:
             print("[WARN] Invalid option.")
 
-
-# ==============================
-# SET UP CRON
-# ==============================
+# Cron job configuration
 
 def set_cron_proc():
     print("=== Cron job configurator ===")
@@ -688,14 +641,14 @@ def set_cron_proc():
         except ValueError:
             k = -1
 
-        # Valores por defecto
+        # Default values
         mins = "*"
         hour = "*"
         day_month = "*"
         month = "*"
         day_week = "*"
 
-        # Config según selección
+        # Configure based on selection
         match k:
             case 0:
                 mins = input("Minute(s) (0-59, * for any): ").strip() or "*"
@@ -719,7 +672,6 @@ def set_cron_proc():
     print(f"\n[RESULT] → {full_entry}")
     save = input("Do you want to save it to your crontab? (y/n) [n]: ").strip().lower() or "n"
     if save == "y":
-        import tempfile, os
         tmpfile = tempfile.NamedTemporaryFile(delete=False)
         os.system(f"crontab -l > {tmpfile.name} 2>/dev/null || true")
         with open(tmpfile.name, "a") as f:
@@ -731,7 +683,7 @@ def set_cron_proc():
 
 def Del_cron_proc(user=None):
     try:
-        # === Leer el crontab actual ===
+        # Read current crontab
         cmd = ["crontab", "-u", user, "-l"] if user else ["crontab", "-l"]
         result = subprocess.run(cmd, capture_output=True, text=True)
 
@@ -745,13 +697,13 @@ def Del_cron_proc(user=None):
         for i, line in enumerate(lines, start=1):
             print(f" {i:>2}. {line}")
 
-        # === Elegir línea a eliminar ===
+        # Select line to delete
         choice = input("\nEnter line number to delete (comma-separated for multiple, or press Enter to skip): ").strip()
         if not choice:
             print("[INFO] No changes made.")
             return
 
-        # Parsear selección
+        # Parse selection
         try:
             indices = sorted({int(x.strip()) for x in choice.split(",") if x.strip().isdigit()}, reverse=True)
         except ValueError:
@@ -765,7 +717,7 @@ def Del_cron_proc(user=None):
             else:
                 print(f"[WARN] Line {idx} out of range, skipped.")
 
-        # === Guardar nuevo crontab ===
+        # Save new crontab
         tmpfile = tempfile.NamedTemporaryFile(delete=False)
         with open(tmpfile.name, "w") as f:
             f.write("\n".join(lines) + "\n")
@@ -785,9 +737,7 @@ def Del_cron_proc(user=None):
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
 
-# ==============================
-# Main Menu
-# ==============================
+# Main menu
 
 def main():
     while True:
@@ -796,9 +746,9 @@ def main():
                 "\nSelect an option:\n"
                 "0 Exit\n"
                 "1 RAID Configuration\n"
-                "2 quotas config\n"
-                "3 cron config"
-                "4 Ldap config"
+                "2 Quotas config\n"
+                "3 Cron config\n"
+                "4 LDAP config"
                 "\n>"
             ))
 
@@ -809,10 +759,10 @@ def main():
                 case 1:
                     AMOGAS = int(input(
                         "\nSelect an option:\n"
-                        "1 set up a raid\n"
-                        "2 Manage raid\n"
-                        "3 check status\n"
-                        "4 format disks\n"
+                        "1 Set up RAID\n"
+                        "2 Manage RAID\n"
+                        "3 Check status\n"
+                        "4 Format disks\n"
                         "5 Exit\n>"
                         ))
                     match AMOGAS:
@@ -832,14 +782,14 @@ def main():
                             print("[INFO] Exiting.")   
                             break    
                         case _:
-                            print("[WARN] invalido")
+                            print("[WARN] Invalid option")
                 case 2:
                     Z = int(input(
                         "\nSelect an option:\n"
-                        "1 set up quotas\n"
-                        "2 add users/groups\n"
-                        "3 config quota\n"
-                        "4 exit\n> "
+                        "1 Set up quotas\n"
+                        "2 Add users/groups\n"
+                        "3 Config quota\n"
+                        "4 Exit\n> "
                     ))
                     match Z:
                         case 1:
@@ -863,10 +813,9 @@ def main():
                     AMOGAS = int(input(
                         "\nSelect an option:\n"
                         "0 Exit\n"
-                        "1 set up a process\n"
-                        "2 delete a process\n"
-                        "3 modify a procces\n"
-                        
+                        "1 Set up process\n"
+                        "2 Delete process\n"
+                        "3 Modify process\n"
                         "\n>"
                         ))
                     match AMOGAS:
@@ -878,9 +827,9 @@ def main():
                         case 2:
                             Del_cron_proc()
                         case 3:
-                            print("a")
+                            print("Coming soon")
                 case 4:
-                    print("pronto esta")
+                    print("Coming soon")
                 case _:
                     print("[WARN] Invalid option.")
         except KeyboardInterrupt:
@@ -892,18 +841,16 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-'''
-program writed by nkv also know as nkv-alex
-
- ^   ^
-( o.o ) 
- > ^ <
- >cat<
-'''
-# copiable comments for program
-# [INFO]
-# [WARN]
-# [ERROR]
-# [STEP]
-# [OK]
+# Program written by nkv (also known as nkv-alex)
+#
+#  ^   ^
+# ( o.o ) 
+#  > ^ <
+#  >cat<
+#
+# Reusable comment tags:
+# [INFO] - Information/status
+# [WARN] - Warning message
+# [ERROR] - Error occurred
+# [STEP] - Current step in process
+# [OK] - Success confirmation
