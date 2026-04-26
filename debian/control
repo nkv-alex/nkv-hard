@@ -1,0 +1,9 @@
+Source: nkv-hard
+Section: utils
+Priority: optional
+Maintainer: alex <tuceac72@gmail.com>
+Standards-Version: 4.6.2
+
+Package: nkv-hard
+Architecture: all
+Depends: python3
