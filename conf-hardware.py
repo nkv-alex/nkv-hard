@@ -810,7 +810,6 @@ def main():
                 "1 RAID Configuration\n"
                 "2 Quotas config\n"
                 "3 Cron config\n"
-                "4 LDAP config"
                 "\n>"
             ))
 
@@ -890,8 +889,6 @@ def main():
                             Del_cron_proc()
                         case 3:
                             edit_cron_job()
-                case 4:
-                    print("Coming soon")
                 case _:
                     print("[WARN] Invalid option.")
         except KeyboardInterrupt:
