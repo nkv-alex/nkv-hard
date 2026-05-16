@@ -737,6 +737,68 @@ def Del_cron_proc(user=None):
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
 
+def edit_cron_job():
+    print("=== Cron Job Editor ===")
+
+    # 1. Obtener crontab actual
+    result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+    
+    if result.returncode != 0 or not result.stdout.strip():
+        print("[INFO] No cron jobs found.")
+        return
+
+    lines = result.stdout.strip().split("\n")
+
+    # 2. Listar jobs
+    print("\nCurrent cron jobs:\n")
+    for i, line in enumerate(lines):
+        print(f"{i} → {line}")
+
+    # 3. Selección
+    try:
+        idx = int(input("\nSelect job to modify: ").strip())
+        if idx < 0 or idx >= len(lines):
+            print("[ERROR] Invalid selection.")
+            return
+    except ValueError:
+        print("[ERROR] Invalid input.")
+        return
+
+    old_job = lines[idx]
+    print(f"\n[INFO] Selected: {old_job}")
+
+    # 4. Nuevo valor
+    print("\nEnter new cron expression + command")
+    print("Example: */5 * * * * python3 script.py")
+
+    new_job = input("> ").strip()
+    if not new_job:
+        print("[ERROR] Empty input.")
+        return
+
+    # 5. Confirmación
+    print(f"\n[CHANGE]\nOLD → {old_job}\nNEW → {new_job}")
+    confirm = input("Apply change? (y/n): ").strip().lower()
+
+    if confirm != "y":
+        print("[INFO] Cancelled.")
+        return
+
+    # 6. Reemplazo
+    lines[idx] = new_job
+
+    # 7. Guardar nuevo crontab
+    with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp:
+        tmp.write("\n".join(lines) + "\n")
+        tmp_path = tmp.name
+
+    try:
+        subprocess.run(["crontab", tmp_path], check=True)
+        print("[INFO] Cron job updated successfully.")
+    except subprocess.CalledProcessError:
+        print("[ERROR] Failed to update crontab.")
+    finally:
+        os.unlink(tmp_path)
 # Main menu
 
 def main():
@@ -827,7 +889,7 @@ def main():
                         case 2:
                             Del_cron_proc()
                         case 3:
-                            print("Coming soon")
+                            edit_cron_job()
                 case 4:
                     print("Coming soon")
                 case _:
