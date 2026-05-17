@@ -7,7 +7,6 @@ import tempfile
 # System Utilities
 
 def ejecutar(cmd):
-    """Execute system command and return status."""
     try:
         print(f"[EXEC] {cmd}")
         subprocess.run(cmd, shell=True, check=True)
@@ -17,7 +16,7 @@ def ejecutar(cmd):
         return False
 
 def formatear_discos():
-    """Full disk wipe with GPT partitioning and uniform filesystem formatting."""
+
     print("[INFO] Starting full disk reinitialization...")
 
     discos = input("Enter devices to format (e.g., /dev/sdb /dev/sdc /dev/sdd): ").split()
@@ -411,6 +410,8 @@ def menu_raid():
                 print(f"[ERROR] LV {nombre_lv} creation failed.")
 
     print("[INFO] RAID and all LVM structures successfully configured.")
+
+
 
 # Quotas Config Menu
 
